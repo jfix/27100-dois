@@ -1,0 +1,62 @@
+<report-spec xmlns:l="http://www.oecd.org/ns/lambda/schema/">
+    <l:prefLabel lang="en">Embargoed PDF Files</l:prefLabel>
+    <l:description lang="en">See ticket 13522 for more information regarding usage</l:description>
+    <custom-query><![CDATA[
+xquery version "1.0-ml";
+
+import module namespace const = "http://www.oecd.org/ns/lambda/app/constants" at "/app/lib/constants/constants.xqm";
+import module namespace utils = "http://www.oecd.org/ns/lambda/app/utils"     at "/app/lib/utils.xqm";
+import module namespace db    = "http://www.oecd.org/ns/lambda/app/lib/db"    at "/app/lib/db/db.xqm";
+import module namespace frbr  = "http://www.oecd.org/ns/lambda/app/lib/frbr"  at "/app/lib/frbr/frbr.xqm";
+import module namespace kappaxml = "http://www.oecd.org/ns/lambda/app/lib/kappaxml"    at "/app/lib/kappaxml/kappaxml.xqm";
+declare default function namespace "http://www.w3.org/2005/xpath-functions";
+declare namespace l = "http://www.oecd.org/ns/lambda/schema/";
+declare namespace xl="http://www.oecd.org/ns/xlambda/schema/";
+
+declare function local:format($d) {
+    let $expression := $d/node()
+    let $iLibraryUrl := $expression/l:iLibraryUrl/text()
+    let $doiSuffix := $expression/l:doiSuffix/text()
+    let $dateOfPublication := $expression/l:dateOfPublication/text()
+
+    let $cutoffDate := xs:date('2019-02-20')
+
+    return 
+        (: no index for l:dateOfPublication so we have to filter out at this point :)
+        if ((xs:date($dateOfPublication) <= $cutoffDate) and not(contains($doiSuffix, '-')))
+        then 
+            <row>
+                <cell>{$expression/l:title[1]/text()}</cell>
+                <cell>{$iLibraryUrl}</cell>
+                <cell>{$doiSuffix}</cell>
+                <cell>{$dateOfPublication}</cell>
+            </row>
+        else ()
+};
+
+
+<report name="working paper" generated="{current-dateTime()}">
+<row>
+    <cell>title</cell>
+    <cell>iLibraryUrl</cell>
+    <cell>identifier</cell>
+    <cell>dateOfPublication</cell>
+</row>
+{
+    utils:parallel-invoke((
+        for $document in 
+        cts:search(collection('expression'), 
+            cts:and-query((
+                cts:collection-query('facet:igo:oecd'),
+                cts:collection-query('facet:medium:e'),
+                cts:collection-query(('facet:submodel:1502'))
+            ))
+        )
+        return function() {
+            local:format($document)
+        }
+    ))
+}
+</report>]]>
+    </custom-query>
+</report-spec>
